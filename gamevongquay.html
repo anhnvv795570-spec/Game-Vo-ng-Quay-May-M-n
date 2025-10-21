@@ -1,0 +1,588 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vòng Quay May Mắn (Nhiều người chơi + Lịch sử)</title>
+
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            padding-top: 20px;
+            padding-bottom: 50px; /* Thêm padding dưới để xem được hết */
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* * BỐ CỤC CHIA 2 CỘT */
+        .game-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 40px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .right-panel {
+            width: 350px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            /* Cho phép cột phải cuộn nếu nội dung quá dài */
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        /* --- CỘT TRÁI (VÒNG QUAY) --- */
+        .wheel-container {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #d90429;
+            z-index: 10;
+        }
+
+        #wheel-canvas {
+            transition: transform 5s ease-out;
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+
+        #spin-btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, opacity 0.3s;
+        }
+
+        #spin-btn:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* --- CỘT PHẢI (THÔNG TIN) --- */
+
+        /* 1. Màn hình Cài đặt (Setup) */
+        #setup-screen h2 {
+            margin-top: 0;
+            text-align: center;
+        }
+        #setup-screen select, #setup-screen button {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+        #setup-screen button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #setup-screen button:hover {
+            background-color: #218838;
+        }
+
+        /* 2. Màn hình Chơi game (Scoreboard) */
+        #game-screen {
+            display: none; 
+        }
+
+        #turn-info {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+
+        #scoreboard h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .player-score {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .player-score .name {
+            font-weight: bold;
+        }
+        .player-score .score {
+            color: #333;
+        }
+
+        .player-score.active {
+            background-color: #e6f7ff;
+            border-color: #007bff;
+            transform: scale(1.03);
+            box-shadow: 0 2px 5px rgba(0,123,255,0.2);
+        }
+
+        /* --- PHẦN THÊM MỚI: CSS CHO LỊCH SỬ --- */
+        #history-container {
+            margin-top: 25px;
+            border-top: 1px dashed #ccc;
+            padding-top: 15px;
+        }
+        #history-container h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            max-height: 200px; /* Giới hạn chiều cao và cho phép cuộn */
+            overflow-y: auto;
+        }
+        #history-list li {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        #history-list li:last-child {
+            border-bottom: none;
+        }
+        #history-list li:first-child {
+            font-weight: bold;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+        /* -------------------------------------- */
+
+
+        /* 3. Bảng Luật chơi */
+        #rules {
+            margin-top: 25px;
+            border-top: 1px dashed #ccc;
+            padding-top: 15px;
+        }
+        #rules h3 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #rules ul {
+            padding-left: 20px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        #rules li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Vòng Quay May Mắn</h1>
+
+    <div class="game-container">
+        
+        <div class="left-panel">
+            <div class="wheel-container">
+                <canvas id="wheel-canvas" width="400" height="400"></canvas>
+                <div class="pointer"></div>
+            </div>
+            <button id="spin-btn">QUAY!</button>
+        </div>
+
+        <div class="right-panel">
+            
+            <div id="setup-screen">
+                <h2>Chọn số người chơi</h2>
+                <select id="player-count-select">
+                    <option value="1">1 Người chơi</option>
+                    <option value="2">2 Người chơi</option>
+                    <option value="3">3 Người chơi</option>
+                    <option value="4">4 Người chơi</option>
+                    <option value="5">5 Người chơi</option>
+                </select>
+                <button id="start-game-btn">BẮT ĐẦU</button>
+            </div>
+
+            <div id="game-screen">
+                <div id="turn-info">Lượt của: Người chơi 1</div>
+
+                <div id="scoreboard">
+                    <h3>Bảng điểm</h3>
+                    </div>
+
+                <div id="history-container">
+                    <h3>Lịch sử quay (5 lượt gần nhất)</h3>
+                    <ul id="history-list">
+                        </ul>
+                </div>
+                <div id="rules">
+                    <h3>Cách chơi & Luật chơi</h3>
+                    <ul>
+                        <li>Mỗi người chơi có **3 lượt quay** cơ bản.</li>
+                        <li>**x2 điểm:** Nhân đôi tổng điểm hiện tại.</li>
+                        <li>**-50 / -100 điểm:** Trừ số điểm tương ứng.</li>
+                        <li>**Thêm 1 lượt:** Được cộng thêm 1 lượt quay.</li>
+                        <li>**Mất lượt:** Bị trừ 1 lượt quay.</li>
+                        <li>Người chơi có điểm cao nhất khi hết lượt sẽ thắng.</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script>
+        // --- Lấy các phần tử DOM ---
+        const canvas = document.getElementById('wheel-canvas');
+        const spinBtn = document.getElementById('spin-btn');
+        const ctx = canvas.getContext('2d');
+        
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const playerCountSelect = document.getElementById('player-count-select');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const turnInfo = document.getElementById('turn-info');
+        const scoreboard = document.getElementById('scoreboard');
+        
+        // --- PHẦN THÊM MỚI ---
+        const historyList = document.getElementById('history-list');
+        // ---------------------
+
+        // --- Cấu hình Vòng quay ---
+        const segments = [
+            '-50 điểm', 'Chúc may mắn', 'Thêm 1 lượt', 'x2 điểm',
+            'Mất lượt', '-100 điểm', '50 điểm', '100 điểm'
+        ];
+        const numSegments = segments.length;
+        const arcSize = (2 * Math.PI) / numSegments;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2 - 10;
+        const colors = ['#FFD700', '#FF6347', '#ADFF2F', '#40E0D0', '#EE82EE', '#FA8072', '#FFB6C1', '#87CEFA'];
+
+        // --- Biến Trạng thái Game ---
+        let currentRotation = 0;
+        let isSpinning = false;
+        let gameStarted = false;
+        
+        let numPlayers = 0;
+        let currentPlayer = 0;
+        let playerScores = [];
+        let playerTurns = [];
+        
+        // --- PHẦN THÊM MỚI ---
+        let gameHistory = []; // Mảng lưu trữ lịch sử
+        const MAX_HISTORY_ITEMS = 5; // Giới hạn 5 dòng
+        // ---------------------
+
+        // --- HÀM 1: Vẽ Vòng Quay ---
+        function drawWheel() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < numSegments; i++) {
+                const startAngle = i * arcSize;
+                const endAngle = (i + 1) * arcSize;
+                ctx.beginPath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.save();
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const textAngle = startAngle + arcSize / 2;
+                ctx.translate(centerX, centerY);
+                ctx.rotate(textAngle);
+                ctx.fillText(segments[i], radius * 0.7, 0);
+                ctx.restore();
+            }
+        }
+
+        // --- HÀM 2: Khởi tạo Trò chơi ---
+        function initGame() {
+            numPlayers = parseInt(playerCountSelect.value);
+            playerScores = [];
+            playerTurns = [];
+            
+            for (let i = 0; i < numPlayers; i++) {
+                playerScores.push(0);
+                playerTurns.push(3);
+            }
+            
+            currentPlayer = 0;
+            gameStarted = true;
+            
+            // --- PHẦN THÊM MỚI ---
+            gameHistory = []; // Reset lịch sử
+            updateHistoryUI(); // Cập nhật UI lịch sử (hiển thị rỗng)
+            // ---------------------
+
+            setupScreen.style.display = 'none';
+            gameScreen.style.display = 'block';
+            spinBtn.disabled = false;
+            
+            updateUI();
+        }
+        
+        // --- HÀM 3: Cập nhật Giao diện (Bảng điểm) ---
+        function updateUI() {
+            turnInfo.textContent = `Lượt của: Người chơi ${currentPlayer + 1}`;
+            
+            // Xóa bảng điểm cũ
+            let scoreContainer = scoreboard.querySelector('h3'); 
+            while (scoreContainer.nextSibling) {
+                scoreContainer.nextSibling.remove();
+            }
+
+            // Vẽ lại bảng điểm
+            for (let i = 0; i < numPlayers; i++) {
+                const scoreDiv = document.createElement('div');
+                scoreDiv.className = 'player-score';
+                
+                if (i === currentPlayer) {
+                    scoreDiv.classList.add('active');
+                }
+                
+                scoreDiv.innerHTML = `
+                    <span class="name">Người chơi ${i + 1}</span>
+                    <span class="score">${playerScores[i]} điểm (còn ${playerTurns[i]} lượt)</span>
+                `;
+                scoreboard.appendChild(scoreDiv);
+            }
+        }
+
+        // --- HÀM 4 (MỚI): Cập nhật Giao diện Lịch sử ---
+        function updateHistoryUI() {
+            historyList.innerHTML = ''; // Xóa sạch
+
+            if (gameHistory.length === 0) {
+                historyList.innerHTML = '<li>Chưa có lượt quay nào</li>';
+                return;
+            }
+
+            // Lặp qua mảng lịch sử (từ mới nhất -> cũ nhất)
+            for (const logEntry of gameHistory) {
+                const li = document.createElement('li');
+                li.textContent = logEntry;
+                historyList.appendChild(li);
+            }
+        }
+        
+        // --- HÀM 5: Hàm Quay Số (ĐÃ CẬP NHẬT) ---
+        function spin() {
+            if (isSpinning || !gameStarted) return;
+            
+            if (playerTurns[currentPlayer] <= 0) {
+                alert(`Người chơi ${currentPlayer + 1} đã hết lượt!`);
+                return;
+            }
+
+            isSpinning = true;
+            spinBtn.disabled = true;
+
+            const randomSpin = Math.random() * 360 + 360 * 5;
+            const finalRotation = currentRotation + randomSpin;
+            currentRotation = finalRotation % 360;
+
+            canvas.style.transform = `rotate(${finalRotation}deg)`;
+
+            setTimeout(() => {
+                isSpinning = false;
+                
+                const result = getResult();
+                
+                // --- PHẦN THÊM MỚI ---
+                // Tạo log và cập nhật lịch sử
+                const logEntry = `Người chơi ${currentPlayer + 1} quay trúng: ${result}`;
+                gameHistory.unshift(logEntry); // Thêm vào ĐẦU mảng
+                if (gameHistory.length > MAX_HISTORY_ITEMS) {
+                    gameHistory.pop(); // Xóa phần tử CŨ NHẤT
+                }
+                updateHistoryUI(); // Cập nhật UI lịch sử
+                // ---------------------
+                
+                // Xử lý kết quả (cộng/trừ điểm, lượt)
+                processResult(result);
+                
+                playerTurns[currentPlayer]--;
+                
+                findNextPlayer();
+                
+                updateUI(); // Cập nhật bảng điểm
+                
+                if (isGameOver()) {
+                    endGame();
+                } else {
+                    spinBtn.disabled = false;
+                }
+
+                canvas.style.transition = 'none'; 
+                canvas.style.transform = `rotate(${currentRotation}deg)`; 
+                setTimeout(() => {
+                    canvas.style.transition = 'transform 5s ease-out';
+                }, 10);
+
+            }, 5000); 
+        }
+
+        // --- HÀM 6: Xử lý Kết quả (Logic điểm) ---
+        function processResult(result) {
+            let score = playerScores[currentPlayer];
+            let turns = playerTurns[currentPlayer];
+            let alertMsg = `Bạn quay trúng: ${result}.\n`; // Bỏ "Người chơi X" vì đã có trong lịch sử
+
+            switch (result) {
+                case '-50 điểm':
+                    score -= 50;
+                    alertMsg += "Bạn bị trừ 50 điểm!";
+                    break;
+                case 'x2 điểm':
+                    score *= 2;
+                    alertMsg += "Điểm của bạn được nhân đôi!";
+                    break;
+                case '-100 điểm':
+                    score -= 100;
+                    alertMsg += "Bạn bị trừ 100 điểm!";
+                    break;
+                case '50 điểm':
+                    score += 50;
+                    alertMsg += "Bạn được cộng 50 điểm!";
+                    break;
+                case '100 điểm':
+                    score += 100;
+                    alertMsg += "Bạn được cộng 100 điểm!";
+                    break;
+                case 'Thêm 1 lượt':
+                    turns++;
+                    alertMsg += "Bạn được thêm 1 lượt quay!";
+                    break;
+                case 'Mất lượt':
+                    turns--;
+                    alertMsg += "Bạn bị mất 1 lượt quay!";
+                    break;
+                case 'Chúc may mắn':
+                    alertMsg += "Không có gì xảy ra.";
+                    break;
+            }
+
+            playerScores[currentPlayer] = score;
+            playerTurns[currentPlayer] = turns;
+            
+            alert(alertMsg + `\nĐiểm mới: ${score}. Số lượt còn lại: ${turns - 1}`);
+        }
+        
+        // --- HÀM 7: Tìm người chơi tiếp theo ---
+        function findNextPlayer() {
+            if (isGameOver()) return;
+
+            let nextPlayer = (currentPlayer + 1) % numPlayers;
+            
+            while (playerTurns[nextPlayer] <= 0) {
+                nextPlayer = (nextPlayer + 1) % numPlayers;
+                if (nextPlayer === currentPlayer && playerTurns[currentPlayer] <= 0) {
+                    break;
+                }
+            }
+            currentPlayer = nextPlayer;
+        }
+
+        // --- HÀM 8: Kiểm tra Game kết thúc ---
+        function isGameOver() {
+            return playerTurns.every(turns => turns <= 0);
+        }
+
+        // --- HÀM 9: Kết thúc Game & Tìm người thắng ---
+        function endGame() {
+            spinBtn.disabled = true;
+            gameStarted = false;
+            
+            let maxScore = -Infinity;
+            playerScores.forEach(score => {
+                if (score > maxScore) maxScore = score;
+            });
+            
+            let winners = [];
+            playerScores.forEach((score, index) => {
+                if (score === maxScore) winners.push(`Người chơi ${index + 1}`);
+            });
+            
+            setTimeout(() => {
+                if (winners.length > 1) {
+                    alert(`TRÒ CHƠI KẾT THÚC!\nCó kết quả hòa! Người thắng cuộc là: ${winners.join(' và ')} với ${maxScore} điểm!`);
+                } else {
+                    alert(`TRÒ CHƠI KẾT THÚC!\nNgười thắng cuộc là: ${winners[0]} với ${maxScore} điểm!`);
+                }
+
+                gameScreen.style.display = 'none';
+                setupScreen.style.display = 'block';
+            }, 500);
+        }
+
+        // --- HÀM 10: Lấy Kết quả Quay (Đã sửa lỗi) ---
+        function getResult() {
+            const normalizedAngle = (270 - currentRotation + 360) % 360;
+            const arcSizeInDegrees = 360 / numSegments;
+            const segmentIndex = Math.floor(normalizedAngle / arcSizeInDegrees);
+            return segments[segmentIndex];
+        }
+
+        // --- KHỞI CHẠY LẦN ĐẦU ---
+        
+        startGameBtn.addEventListener('click', initGame);
+        spinBtn.addEventListener('click', spin);
+
+        drawWheel();
+        spinBtn.disabled = true;
+        
+    </script>
+
+</body>
+</html>
